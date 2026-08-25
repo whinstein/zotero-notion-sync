@@ -15,8 +15,6 @@ jobs:
         with:
           node-version: "20"
 
-      - run: npm ci
-
       - name: Run sync
         env:
           ZOTERO_API_KEY: ${{ secrets.ZOTERO_API_KEY }}
