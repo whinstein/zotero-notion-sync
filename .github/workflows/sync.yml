@@ -1,9 +1,30 @@
 name: Zotero → Notion Sync
 
 on:
+  # GitHub Actions silently ignores schedules under 5 minutes, so this runs
+  # every 15 minutes, offset off the hour to dodge the top-of-hour queue.
   schedule:
-    - cron: "*/2 * * * *"
-  workflow_dispatch: {}
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Ignore sync-state.json and re-read the whole library"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Report changes without writing to Notion"
+        type: boolean
+        default: false
+
+# Needed to commit sync-state.json back: the runner filesystem is discarded
+# after every run, so the repo is the only place state survives.
+permissions:
+  contents: write
+
+# Runs must not overlap, or two of them would race on sync-state.json.
+concurrency:
+  group: zotero-notion-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -21,4 +42,27 @@ jobs:
           ZOTERO_USER_ID: ${{ secrets.ZOTERO_USER_ID }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_URL: ${{ secrets.NOTION_DATABASE_URL }}
-        run: node src/sync.js
+          SYNC_FULL: ${{ inputs.full }}
+          SYNC_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=""
+          if [ "$SYNC_FULL" = "true" ]; then args="$args --full"; fi
+          if [ "$SYNC_DRY_RUN" = "true" ]; then args="$args --dry-run"; fi
+          node src/sync.js $args
+
+      - name: Commit sync state
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          if [ ! -f sync-state.json ]; then
+            echo "No sync-state.json to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sync-state.json
+          if git diff --cached --quiet; then
+            echo "sync-state.json unchanged."
+            exit 0
+          fi
+          git commit -m "chore: update sync state [skip ci]"
+          git push || (git pull --rebase && git push)
