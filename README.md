@@ -63,15 +63,28 @@ node src/sync.js --dry-run    # report changes, write nothing
 npm test                      # mocked-fetch test suite, no network
 ```
 
-## Schedule
+## Running it (manual only)
 
-`.github/workflows/sync.yml` runs at `7,22,37,52 * * * *` — every 15 minutes, offset off the hour.
-GitHub Actions silently ignores schedules shorter than 5 minutes, and the top of the hour is the
-most congested slot. The workflow declares `permissions: contents: write` (to commit the state file)
-and a `concurrency` group so two runs cannot race on it. The commit step stages only
+There is **no schedule** — the workflow runs only when you start it, so it never fires on its own
+and never sends unprompted notifications. Start it from the **Actions** tab → *Zotero → Notion
+Sync* → **Run workflow**; the `full` and `dry_run` inputs are on that form. You can also run it
+locally with the commands above.
+
+The workflow still declares `permissions: contents: write` (to commit `sync-state.json`) and a
+`concurrency` group so two manual runs cannot race on it. The commit step stages only
 `sync-state.json`.
 
-Run it by hand from the Actions tab; `workflow_dispatch` takes `full` and `dry_run` inputs.
+Because the state file is committed, manual runs stay incremental: whenever you run it, it picks up
+from wherever the last run stopped, however long ago that was. To re-schedule it later, add a
+`schedule:` trigger back to `.github/workflows/sync.yml` — note that Actions silently ignores crons
+shorter than 5 minutes, and the top of the hour is the most congested slot:
+
+```yaml
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+```
 
 ## Limitations
 

@@ -1,10 +1,10 @@
 name: Zotero → Notion Sync
 
 on:
-  # GitHub Actions silently ignores schedules under 5 minutes, so this runs
-  # every 15 minutes, offset off the hour to dodge the top-of-hour queue.
-  schedule:
-    - cron: "7,22,37,52 * * * *"
+  # Manual only — no `schedule:` trigger, by design. Run it from the Actions
+  # tab when you want a sync. (If a schedule is ever added back: Actions
+  # silently ignores crons under 5 minutes, and the top of the hour is the
+  # most congested slot.)
   workflow_dispatch:
     inputs:
       full:
